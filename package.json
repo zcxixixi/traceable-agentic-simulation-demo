@@ -14,6 +14,8 @@
     "test:visual:agent": "node scripts/visual-agent-test.mjs",
     "test:llm:agent": "node scripts/llm-agent-test.mjs",
     "test:visual:llm-agent": "node scripts/visual-llm-agent-test.mjs",
+    "test:pipeline": "node scripts/pipeline-test.mjs 3",
+    "test:pipeline:full": "node scripts/pipeline-test.mjs 6",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

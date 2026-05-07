@@ -5,10 +5,13 @@ import type { PipelineRunResult } from './demoSchema';
 const convexUrl = import.meta.env.VITE_CONVEX_URL || 'http://127.0.0.1:3210';
 const client = new ConvexHttpClient(convexUrl);
 
-export async function runEducationReformPipeline(question: string): Promise<PipelineRunResult> {
+export async function runEducationReformPipeline(
+  question: string,
+  maxAgents: number,
+): Promise<PipelineRunResult> {
   const result = await client.action(api.pipeline.runEducationReformDemo, {
     question,
-    maxAgents: 6,
+    maxAgents,
   });
   return result as unknown as PipelineRunResult;
 }

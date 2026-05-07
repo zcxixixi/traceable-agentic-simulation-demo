@@ -177,20 +177,39 @@ async function callOpenAiCompatibleProvider(messages: ChatMessage[]) {
   const baseUrl = getEnv('LLM_API_BASE_URL').replace(/\/$/, '');
   const apiKey = getEnv('LLM_API_KEY');
   const model = getEnv('LLM_MODEL');
+  const url = `${baseUrl}/chat/completions`;
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${apiKey}`,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: 0.2,
-      response_format: { type: 'json_object' },
-    }),
-  });
+  let response: Response | undefined;
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: 0.2,
+          response_format: { type: 'json_object' },
+        }),
+      });
+      break;
+    } catch (error) {
+      lastError = error;
+      if (attempt === 3) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`LLM API network request failed after 3 attempts for ${url}: ${message}`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, attempt * 700));
+    }
+  }
+
+  if (!response) {
+    throw new Error(`LLM API request failed before receiving a response: ${String(lastError)}`);
+  }
 
   const text = await response.text();
   if (!response.ok) {

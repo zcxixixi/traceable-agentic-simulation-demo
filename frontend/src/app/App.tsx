@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { samplePipelineResult } from '../lib/samplePipeline';
+import { runEducationReformPipeline } from '../lib/convexClient';
 import { RPPixiWorld } from '../features/world/RPPixiWorld';
 import { AgentInspector } from '../features/world/AgentInspector';
 import { MetricPanel } from '../features/world/MetricPanel';
@@ -10,9 +11,13 @@ import { PipelineTimeline } from '../features/pipeline/PipelineTimeline';
 
 export function App() {
   const [result, setResult] = useState(samplePipelineResult);
+  const [question, setQuestion] = useState(samplePipelineResult.question);
   const [selectedAgentId, setSelectedAgentId] = useState('student');
   const [selectedTraceId, setSelectedTraceId] = useState(result.traceEvents[0]?.id);
   const [isRunning, setIsRunning] = useState(false);
+  const [runError, setRunError] = useState<string>();
+  const [lastRunSource, setLastRunSource] = useState<'sample' | 'convex'>('sample');
+  const [maxAgents, setMaxAgents] = useState(3);
 
   const selectedAgent = useMemo(
     () => result.compiledState.agents.find((agent) => agent.id === selectedAgentId),
@@ -27,14 +32,23 @@ export function App() {
     [result.traceEvents, selectedTraceId],
   );
 
-  function runPipeline() {
+  async function runPipeline() {
     setIsRunning(true);
-    window.setTimeout(() => {
-      setResult(samplePipelineResult);
-      setSelectedAgentId('student');
-      setSelectedTraceId(samplePipelineResult.traceEvents[0]?.id);
+    setRunError(undefined);
+
+    try {
+      const pipelineResult = await runEducationReformPipeline(question, maxAgents);
+      setResult(pipelineResult);
+      const firstAgentId = pipelineResult.compiledState.agents[0]?.id ?? 'student';
+      const firstTraceId = pipelineResult.traceEvents[0]?.id;
+      setSelectedAgentId(firstAgentId);
+      setSelectedTraceId(firstTraceId);
+      setLastRunSource('convex');
+    } catch (error) {
+      setRunError(error instanceof Error ? error.message : String(error));
+    } finally {
       setIsRunning(false);
-    }, 450);
+    }
   }
 
   return (
@@ -43,12 +57,49 @@ export function App() {
         <div>
           <p className="eyebrow">Traceable Agentic Simulation</p>
           <h1>AI Town-style RP Pipeline</h1>
-          <p className="question">{result.question}</p>
+          <textarea
+            className="question-input"
+            value={question}
+            onChange={(event) => setQuestion(event.target.value)}
+            aria-label="Decision question"
+          />
+          <p className="run-status">
+            {lastRunSource === 'convex'
+              ? 'Live Convex pipeline result'
+              : 'Sample pipeline loaded. Run the full pipeline to call Convex + LLM agents.'}
+          </p>
         </div>
-        <button className="run-button" type="button" onClick={runPipeline}>
-          {isRunning ? 'Running pipeline' : 'Run full pipeline'}
-        </button>
+        <div className="run-controls">
+          <div className="agent-toggle" aria-label="Agent count">
+            <button
+              type="button"
+              className={maxAgents === 3 ? 'toggle-active' : ''}
+              onClick={() => setMaxAgents(3)}
+              disabled={isRunning}
+            >
+              Fast 3
+            </button>
+            <button
+              type="button"
+              className={maxAgents === 6 ? 'toggle-active' : ''}
+              onClick={() => setMaxAgents(6)}
+              disabled={isRunning}
+            >
+              Full 6
+            </button>
+          </div>
+          <button className="run-button" type="button" onClick={runPipeline} disabled={isRunning}>
+            {isRunning ? `Running ${maxAgents} agents` : 'Run pipeline'}
+          </button>
+        </div>
       </header>
+
+      {runError && (
+        <div className="error-banner">
+          <strong>Pipeline failed</strong>
+          <span>{runError}</span>
+        </div>
+      )}
 
       <main className="dashboard">
         <section className="world-surface">
