@@ -16,6 +16,7 @@ type Props = {
   result: PipelineRunResult;
   selectedAgentId?: string;
   selectedTraceId?: string;
+  isPlaying: boolean;
   onSelectAgent: (agentId: string) => void;
 };
 
@@ -77,24 +78,46 @@ function drawZone(container: Container, zone: VisualZone) {
   container.addChild(zoneBox, label);
 }
 
+type AgentPieces = {
+  agent: VisualAgent;
+  container: Container;
+  sprite: Sprite;
+  shadow: Graphics;
+  ring: Graphics;
+  bubble: Graphics;
+  label?: Text;
+  baseX: number;
+  baseY: number;
+  frameRow: number;
+};
+
 function createAgentSprite(texture: Texture, agent: VisualAgent, active: boolean) {
   const frame = new Rectangle(0, agent.spriteRow * 32, 32, 32);
+  const container = new Container();
+  container.x = agent.x;
+  container.y = agent.y;
+  container.zIndex = agent.y + 80;
+  container.eventMode = 'static';
+  container.cursor = 'pointer';
+
   const sprite = new Sprite(new Texture(texture.baseTexture, frame));
   sprite.anchor.set(0.5);
-  sprite.x = agent.x;
-  sprite.y = agent.y;
+  sprite.y = 0;
   sprite.scale.set(active ? 2.25 : 2);
-  sprite.eventMode = 'static';
-  sprite.cursor = 'pointer';
 
   const shadow = new Graphics();
   shadow.beginFill(0x000000, 0.28);
-  shadow.drawEllipse(agent.x, agent.y + 28, active ? 27 : 22, active ? 10 : 8);
+  shadow.drawEllipse(0, 28, active ? 27 : 22, active ? 10 : 8);
   shadow.endFill();
 
   const ring = new Graphics();
   ring.lineStyle(active ? 5 : 2, active ? 0xfff06a : 0xffffff, active ? 0.95 : 0.25);
-  ring.drawCircle(agent.x, agent.y + 4, active ? 35 : 29);
+  ring.drawCircle(0, 4, active ? 35 : 29);
+
+  const bubble = new Graphics();
+  bubble.beginFill(0xfff06a, active ? 0.95 : 0);
+  bubble.drawCircle(23, -29, active ? 7 : 0);
+  bubble.endFill();
 
   const label = active
     ? new Text(agent.name, {
@@ -107,17 +130,48 @@ function createAgentSprite(texture: Texture, agent: VisualAgent, active: boolean
     : undefined;
   if (label) {
     label.anchor.set(0.5);
-    label.x = agent.x;
-    label.y = agent.y - 42;
+    label.y = -42;
   }
 
-  return { sprite, shadow, ring, label };
+  container.addChild(shadow, ring, sprite, bubble);
+  if (label) {
+    container.addChild(label);
+  }
+
+  return {
+    agent,
+    container,
+    sprite,
+    shadow,
+    ring,
+    bubble,
+    label,
+    baseX: agent.x,
+    baseY: agent.y,
+    frameRow: agent.spriteRow,
+  };
+}
+
+function drawTracePath(container: Container, agent: VisualAgent, trace?: VisualTraceEvent) {
+  const path = new Graphics();
+  if (!trace || trace.actorId !== agent.id) {
+    return path;
+  }
+
+  path.lineStyle(5, 0xfff06a, 0.7);
+  path.moveTo(agent.x, agent.y + 12);
+  path.bezierCurveTo(agent.x + 45, agent.y - 72, 500, 250, 700, 335);
+  path.lineStyle(2, 0xffffff, 0.4);
+  path.drawCircle(agent.x, agent.y + 12, 42);
+  container.addChild(path);
+  return path;
 }
 
 export function RPPixiWorld({
   result,
   selectedAgentId,
   selectedTraceId,
+  isPlaying,
   onSelectAgent,
 }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -164,15 +218,64 @@ export function RPPixiWorld({
       drawGround(root);
       result.compiledState.zones.forEach((zone) => drawZone(root, zone));
 
+      const agentPieces: AgentPieces[] = [];
+      const tracePaths: Graphics[] = [];
+      const metricPulse = new Graphics();
+      root.addChild(metricPulse);
+
       for (const agent of result.compiledState.agents) {
         const active = selectedAgentId === agent.id || isHighlighted(agent, selectedTrace);
         const pieces = createAgentSprite(texture, agent, active);
-        pieces.sprite.on('pointerdown', () => onSelectAgent(agent.id));
-        root.addChild(pieces.shadow, pieces.ring, pieces.sprite);
-        if (pieces.label) {
-          root.addChild(pieces.label);
-        }
+        const path = drawTracePath(root, agent, selectedTrace);
+        tracePaths.push(path);
+        pieces.container.on('pointerdown', () => onSelectAgent(agent.id));
+        root.addChild(pieces.container);
+        agentPieces.push(pieces);
       }
+
+      let elapsed = 0;
+      app.ticker.add((delta) => {
+        elapsed += delta / 60;
+        const fastFrame = Math.floor(elapsed * 8) % 4;
+        const slowPulse = (Math.sin(elapsed * Math.PI * 2) + 1) / 2;
+
+        for (const pieces of agentPieces) {
+          const active = selectedAgentId === pieces.agent.id || selectedTrace?.actorId === pieces.agent.id;
+          const walkOffset = active && isPlaying ? Math.sin(elapsed * Math.PI * 2) * 18 : 0;
+          const bob = Math.sin(elapsed * Math.PI * (active ? 5 : 2) + pieces.frameRow) * (active ? 5 : 2);
+          const drift = active && isPlaying ? Math.cos(elapsed * Math.PI * 2) * 10 : 0;
+          const frameX = (isPlaying ? fastFrame : 0) * 32;
+
+          pieces.container.x = pieces.baseX + walkOffset;
+          pieces.container.y = pieces.baseY + drift;
+          pieces.sprite.y = bob;
+          pieces.sprite.texture.frame = new Rectangle(frameX, pieces.frameRow * 32, 32, 32);
+          pieces.sprite.texture.updateUvs();
+          pieces.sprite.scale.set(active ? 2.2 + slowPulse * 0.18 : 2);
+
+          pieces.ring.clear();
+          pieces.ring.lineStyle(active ? 5 : 2, active ? 0xfff06a : 0xffffff, active ? 0.65 + slowPulse * 0.35 : 0.22);
+          pieces.ring.drawCircle(0, 4, active ? 31 + slowPulse * 11 : 29);
+
+          pieces.bubble.clear();
+          if (active) {
+            pieces.bubble.beginFill(0xfff06a, 0.75 + slowPulse * 0.2);
+            pieces.bubble.drawCircle(23, -29 - bob, 5 + slowPulse * 4);
+            pieces.bubble.endFill();
+          }
+        }
+
+        metricPulse.clear();
+        if (selectedTrace) {
+          const intensity = 0.18 + slowPulse * 0.28;
+          metricPulse.lineStyle(4, 0xff7368, intensity);
+          metricPulse.drawRoundedRect(18, 18, worldWidth - 36, worldHeight - 36, 12);
+        }
+
+        tracePaths.forEach((path, index) => {
+          path.alpha = 0.45 + Math.sin(elapsed * Math.PI * 2 + index) * 0.25;
+        });
+      });
 
       fitWorld();
     };

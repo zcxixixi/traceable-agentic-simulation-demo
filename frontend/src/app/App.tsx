@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { samplePipelineResult } from '../lib/samplePipeline';
 import { runEducationReformPipeline } from '../lib/convexClient';
 import { RPPixiWorld } from '../features/world/RPPixiWorld';
@@ -18,6 +18,7 @@ export function App() {
   const [runError, setRunError] = useState<string>();
   const [lastRunSource, setLastRunSource] = useState<'sample' | 'convex'>('sample');
   const [maxAgents, setMaxAgents] = useState(3);
+  const [isPlaying, setIsPlaying] = useState(true);
 
   const selectedAgent = useMemo(
     () => result.compiledState.agents.find((agent) => agent.id === selectedAgentId),
@@ -31,6 +32,24 @@ export function App() {
     () => result.traceEvents.find((trace) => trace.id === selectedTraceId),
     [result.traceEvents, selectedTraceId],
   );
+
+  useEffect(() => {
+    if (!isPlaying || isRunning || result.traceEvents.length === 0) return undefined;
+
+    const interval = window.setInterval(() => {
+      setSelectedTraceId((currentTraceId) => {
+        const currentIndex = result.traceEvents.findIndex((trace) => trace.id === currentTraceId);
+        const nextTrace = result.traceEvents[(currentIndex + 1) % result.traceEvents.length];
+        if (nextTrace) {
+          setSelectedAgentId(nextTrace.actorId);
+          return nextTrace.id;
+        }
+        return currentTraceId;
+      });
+    }, 2100);
+
+    return () => window.clearInterval(interval);
+  }, [isPlaying, isRunning, result.traceEvents]);
 
   async function runPipeline() {
     setIsRunning(true);
@@ -70,6 +89,13 @@ export function App() {
           </p>
         </div>
         <div className="run-controls">
+          <button
+            className={`play-toggle ${isPlaying ? 'play-active' : ''}`}
+            type="button"
+            onClick={() => setIsPlaying((value) => !value)}
+          >
+            {isPlaying ? 'Auto play' : 'Paused'}
+          </button>
           <div className="agent-toggle" aria-label="Agent count">
             <button
               type="button"
@@ -107,6 +133,7 @@ export function App() {
             result={result}
             selectedAgentId={selectedAgentId}
             selectedTraceId={selectedTraceId}
+            isPlaying={isPlaying && !isRunning}
             onSelectAgent={setSelectedAgentId}
           />
         </section>

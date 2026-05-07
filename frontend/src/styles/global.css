@@ -105,6 +105,24 @@ h2 {
   justify-items: end;
 }
 
+.play-toggle {
+  min-width: 112px;
+  border: 2px solid rgba(255, 209, 95, 0.45);
+  border-radius: 6px;
+  background: rgba(20, 12, 7, 0.72);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+  padding: 7px 10px;
+}
+
+.play-active {
+  animation: livePulse 1.25s ease-in-out infinite;
+  background: rgba(255, 209, 95, 0.2);
+  color: var(--accent);
+}
+
 .agent-toggle {
   display: flex;
   overflow: hidden;
@@ -369,6 +387,7 @@ h2 {
 .trace-active {
   border-color: rgba(255, 209, 95, 0.9);
   background: rgba(255, 209, 95, 0.12);
+  animation: traceFlash 0.45s ease-out;
 }
 
 .retrieval-card div,
@@ -399,5 +418,23 @@ h2 {
   .app-header {
     align-items: start;
     flex-direction: column;
+  }
+}
+
+@keyframes livePulse {
+  0%, 100% {
+    box-shadow: 0 0 0 rgba(255, 209, 95, 0);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(255, 209, 95, 0.42);
+  }
+}
+
+@keyframes traceFlash {
+  from {
+    transform: translateX(7px);
+  }
+  to {
+    transform: translateX(0);
   }
 }
