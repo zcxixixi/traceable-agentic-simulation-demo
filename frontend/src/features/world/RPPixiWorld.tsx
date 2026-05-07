@@ -18,6 +18,7 @@ type Props = {
   selectedTraceId?: string;
   isPlaying: boolean;
   onSelectAgent: (agentId: string) => void;
+  onMoveAgentToZone: (agentId: string, zoneId: string) => void;
 };
 
 const worldWidth = 980;
@@ -56,9 +57,9 @@ function drawGround(container: Container) {
   container.addChild(ground, road);
 }
 
-function drawZone(container: Container, zone: VisualZone) {
+function drawZone(container: Container, zone: VisualZone, active: boolean) {
   const zoneBox = new Graphics();
-  zoneBox.lineStyle(4, 0x3d2c19, 0.55);
+  zoneBox.lineStyle(active ? 6 : 4, active ? 0xfff06a : 0x3d2c19, active ? 0.95 : 0.55);
   zoneBox.beginFill(zone.color, 0.9);
   zoneBox.drawRoundedRect(zone.x, zone.y, zone.width, zone.height, 6);
   zoneBox.endFill();
@@ -76,6 +77,7 @@ function drawZone(container: Container, zone: VisualZone) {
   label.y = zone.y + 12;
 
   container.addChild(zoneBox, label);
+  return zoneBox;
 }
 
 type AgentPieces = {
@@ -88,6 +90,8 @@ type AgentPieces = {
   label?: Text;
   baseX: number;
   baseY: number;
+  targetX: number;
+  targetY: number;
   frameRow: number;
 };
 
@@ -148,6 +152,8 @@ function createAgentSprite(texture: Texture, agent: VisualAgent, active: boolean
     label,
     baseX: agent.x,
     baseY: agent.y,
+    targetX: agent.x,
+    targetY: agent.y,
     frameRow: agent.spriteRow,
   };
 }
@@ -173,6 +179,7 @@ export function RPPixiWorld({
   selectedTraceId,
   isPlaying,
   onSelectAgent,
+  onMoveAgentToZone,
 }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const selectedTrace = useMemo(
@@ -216,12 +223,37 @@ export function RPPixiWorld({
       texture.baseTexture.scaleMode = SCALE_MODES.NEAREST;
 
       drawGround(root);
-      result.compiledState.zones.forEach((zone) => drawZone(root, zone));
 
       const agentPieces: AgentPieces[] = [];
       const tracePaths: Graphics[] = [];
       const metricPulse = new Graphics();
+      const commandPath = new Graphics();
+      root.addChild(commandPath);
       root.addChild(metricPulse);
+
+      const selectedAgent = result.compiledState.agents.find((agent) => agent.id === selectedAgentId);
+      result.compiledState.zones.forEach((zone) => {
+        const active = selectedAgent?.zoneId === zone.id;
+        const zoneBox = drawZone(root, zone, active);
+        zoneBox.eventMode = 'static';
+        zoneBox.cursor = selectedAgentId ? 'crosshair' : 'pointer';
+        zoneBox.on('pointerdown', () => {
+          if (!selectedAgentId) return;
+          const pieces = agentPieces.find((candidate) => candidate.agent.id === selectedAgentId);
+          if (!pieces) return;
+
+          pieces.targetX = zone.x + zone.width / 2;
+          pieces.targetY = zone.y + zone.height / 2 + 22;
+          onMoveAgentToZone(selectedAgentId, zone.id);
+
+          commandPath.clear();
+          commandPath.lineStyle(6, 0x72d46a, 0.88);
+          commandPath.moveTo(pieces.container.x, pieces.container.y + 8);
+          commandPath.lineTo(pieces.targetX, pieces.targetY + 8);
+          commandPath.lineStyle(2, 0xffffff, 0.65);
+          commandPath.drawCircle(pieces.targetX, pieces.targetY + 8, 26);
+        });
+      });
 
       for (const agent of result.compiledState.agents) {
         const active = selectedAgentId === agent.id || isHighlighted(agent, selectedTrace);
@@ -241,13 +273,20 @@ export function RPPixiWorld({
 
         for (const pieces of agentPieces) {
           const active = selectedAgentId === pieces.agent.id || selectedTrace?.actorId === pieces.agent.id;
-          const walkOffset = active && isPlaying ? Math.sin(elapsed * Math.PI * 2) * 18 : 0;
+          const dx = pieces.targetX - pieces.container.x;
+          const dy = pieces.targetY - pieces.container.y;
+          const isMoving = Math.hypot(dx, dy) > 1;
+          pieces.container.x += dx * 0.08;
+          pieces.container.y += dy * 0.08;
+          const walkOffset = active && isPlaying && !isMoving ? Math.sin(elapsed * Math.PI * 2) * 18 : 0;
           const bob = Math.sin(elapsed * Math.PI * (active ? 5 : 2) + pieces.frameRow) * (active ? 5 : 2);
-          const drift = active && isPlaying ? Math.cos(elapsed * Math.PI * 2) * 10 : 0;
+          const drift = active && isPlaying && !isMoving ? Math.cos(elapsed * Math.PI * 2) * 10 : 0;
           const frameX = (isPlaying ? fastFrame : 0) * 32;
 
-          pieces.container.x = pieces.baseX + walkOffset;
-          pieces.container.y = pieces.baseY + drift;
+          if (!isMoving) {
+            pieces.container.x = pieces.targetX + walkOffset;
+            pieces.container.y = pieces.targetY + drift;
+          }
           pieces.sprite.y = bob;
           pieces.sprite.texture.frame = new Rectangle(frameX, pieces.frameRow * 32, 32, 32);
           pieces.sprite.texture.updateUvs();
@@ -289,7 +328,7 @@ export function RPPixiWorld({
       resizeObserver.disconnect();
       app.destroy(true, { children: true, texture: false, baseTexture: false });
     };
-  }, [onSelectAgent, result, selectedAgentId, selectedTrace]);
+  }, [isPlaying, onMoveAgentToZone, onSelectAgent, result, selectedAgentId, selectedTrace]);
 
   return <div ref={hostRef} className="pixi-host" aria-label="AI Town style simulation canvas" />;
 }

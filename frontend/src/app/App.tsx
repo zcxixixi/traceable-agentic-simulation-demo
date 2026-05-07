@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { samplePipelineResult } from '../lib/samplePipeline';
 import { runEducationReformPipeline } from '../lib/convexClient';
 import { RPPixiWorld } from '../features/world/RPPixiWorld';
@@ -19,6 +19,7 @@ export function App() {
   const [lastRunSource, setLastRunSource] = useState<'sample' | 'convex'>('sample');
   const [maxAgents, setMaxAgents] = useState(3);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [visualCommands, setVisualCommands] = useState<string[]>([]);
 
   const selectedAgent = useMemo(
     () => result.compiledState.agents.find((agent) => agent.id === selectedAgentId),
@@ -69,6 +70,18 @@ export function App() {
       setIsRunning(false);
     }
   }
+
+  const moveSelectedAgent = useCallback((agentId: string, zoneId: string) => {
+    const agent = result.compiledState.agents.find((candidate) => candidate.id === agentId);
+    const zone = result.compiledState.zones.find((candidate) => candidate.id === zoneId);
+    if (!agent || !zone) return;
+
+    setSelectedAgentId(agentId);
+    setVisualCommands((commands) => [
+      `${agent.name} moved to ${zone.name}`,
+      ...commands.slice(0, 3),
+    ]);
+  }, [result.compiledState.agents, result.compiledState.zones]);
 
   return (
     <div className="app-shell">
@@ -135,7 +148,15 @@ export function App() {
             selectedTraceId={selectedTraceId}
             isPlaying={isPlaying && !isRunning}
             onSelectAgent={setSelectedAgentId}
+            onMoveAgentToZone={moveSelectedAgent}
           />
+          <div className="world-hint">
+            <strong>Interactive mode</strong>
+            <span>Click an agent, then click a zone to move it.</span>
+            {visualCommands.map((command) => (
+              <small key={command}>{command}</small>
+            ))}
+          </div>
         </section>
 
         <aside className="right-rail">
