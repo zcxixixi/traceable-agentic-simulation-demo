@@ -1,0 +1,317 @@
+:root {
+  color-scheme: dark;
+  --bg: #17110d;
+  --panel: #2b1d14;
+  --panel-soft: #3a281c;
+  --ink: #fff3d7;
+  --muted: #c8b58f;
+  --line: rgba(255, 226, 160, 0.22);
+  --accent: #ffd15f;
+  --green: #72d46a;
+  --red: #ff7368;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-width: 1120px;
+  background:
+    linear-gradient(rgba(20, 13, 8, 0.82), rgba(20, 13, 8, 0.92)),
+    url('/ai-town/assets/magecity.png') center / cover fixed;
+  color: var(--ink);
+}
+
+button {
+  font: inherit;
+}
+
+.app-shell {
+  min-height: 100vh;
+  padding: 18px;
+}
+
+.app-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 auto 14px;
+  max-width: 1500px;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 28px;
+  letter-spacing: 0;
+}
+
+h2 {
+  margin-bottom: 10px;
+  font-size: 17px;
+}
+
+.question {
+  max-width: 860px;
+  margin-top: 8px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.run-button {
+  min-width: 170px;
+  border: 3px solid #1f140d;
+  border-radius: 6px;
+  background: linear-gradient(#ffe18a, #d68f35);
+  color: #24150a;
+  box-shadow: 0 5px 0 #5c3417;
+  cursor: pointer;
+  font-weight: 900;
+  padding: 12px 16px;
+}
+
+.run-button:active {
+  transform: translateY(3px);
+  box-shadow: 0 2px 0 #5c3417;
+}
+
+.dashboard {
+  display: grid;
+  grid-template-columns: minmax(760px, 1fr) 370px;
+  grid-template-rows: 620px auto auto;
+  gap: 14px;
+  max-width: 1500px;
+  margin: 0 auto;
+}
+
+.world-surface {
+  min-height: 620px;
+  overflow: hidden;
+  border: 8px solid #382214;
+  border-radius: 8px;
+  background: #7ab5ff;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.45);
+}
+
+.pixi-host {
+  width: 100%;
+  height: 100%;
+}
+
+.pixi-host canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+.right-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+}
+
+.panel {
+  border: 4px solid #3c2618;
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(53, 35, 24, 0.97), rgba(37, 24, 17, 0.98));
+  box-shadow: inset 0 0 0 2px rgba(255, 225, 157, 0.1), 0 14px 32px rgba(0, 0, 0, 0.32);
+  padding: 14px;
+}
+
+.panel p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.role,
+.detail-block span,
+.metric-row span,
+.trace-card span,
+.retrieval-card span,
+.claim-head span {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.detail-block {
+  margin-top: 13px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.detail-block small,
+.trace-card small,
+.claim-card small,
+.retrieval-card small {
+  color: #dccca8;
+  display: block;
+  margin-top: 8px;
+  line-height: 1.35;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.detail-grid div {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 10px;
+}
+
+.detail-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.detail-grid strong {
+  font-size: 22px;
+}
+
+.metric-list,
+.trace-list,
+.step-list,
+.retrieval-list,
+.claim-list {
+  display: grid;
+  gap: 9px;
+}
+
+.metric-row > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+
+.metric-track {
+  height: 9px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(0, 0, 0, 0.38);
+}
+
+.metric-track div {
+  height: 100%;
+}
+
+.metric-good {
+  color: var(--green);
+  background: var(--green);
+}
+
+.metric-risk {
+  color: var(--red);
+  background: var(--red);
+}
+
+.metric-neutral {
+  color: var(--accent);
+  background: var(--accent);
+}
+
+.timeline-panel,
+.trace-panel,
+.retrieval-panel,
+.report-panel {
+  min-height: 210px;
+}
+
+.step-row {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.step-index {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 4px;
+  background: #684322;
+  color: var(--accent);
+  font-weight: 900;
+}
+
+.trace-card,
+.retrieval-card,
+.claim-card {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--ink);
+  padding: 11px;
+  text-align: left;
+}
+
+.trace-card {
+  cursor: pointer;
+}
+
+.trace-card strong {
+  display: block;
+  margin: 5px 0;
+}
+
+.trace-active {
+  border-color: rgba(255, 209, 95, 0.9);
+  background: rgba(255, 209, 95, 0.12);
+}
+
+.retrieval-card div,
+.claim-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.report-panel {
+  grid-column: span 2;
+}
+
+@media (max-width: 1180px) {
+  body {
+    min-width: 0;
+  }
+
+  .dashboard {
+    grid-template-columns: 1fr;
+    grid-template-rows: 560px auto;
+  }
+
+  .report-panel {
+    grid-column: span 1;
+  }
+
+  .app-header {
+    align-items: start;
+    flex-direction: column;
+  }
+}

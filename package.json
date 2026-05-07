@@ -1,0 +1,26 @@
+{
+  "name": "traceable-agentic-simulation-demo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev:backend": "convex dev",
+    "test:backend": "convex run tests:runAll",
+    "test:visual:scenario": "node scripts/visual-scenario-test.mjs",
+    "test:visual:worldspec": "node scripts/visual-worldspec-test.mjs",
+    "test:visual:evidence": "node scripts/visual-evidence-assumption-test.mjs",
+    "test:visual:compiler": "node scripts/visual-compiler-test.mjs",
+    "test:visual:runtime": "node scripts/visual-runtime-test.mjs",
+    "test:visual:agent": "node scripts/visual-agent-test.mjs",
+    "test:llm:agent": "node scripts/llm-agent-test.mjs",
+    "test:visual:llm-agent": "node scripts/visual-llm-agent-test.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "convex": "^1.19.2",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.2"
+  }
+}
