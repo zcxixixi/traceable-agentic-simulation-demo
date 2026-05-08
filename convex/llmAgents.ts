@@ -107,6 +107,7 @@ function buildMessages(args: {
   const metricIds = args.state.metrics.map((metric) => metric.id);
   const evidenceIds = args.evidence.map((item) => item.evidenceId);
   const assumptionIds = args.assumptions.map((item) => item.assumptionId);
+  const zoneIds = args.state.zones.map((zone) => zone.id);
 
   return [
     {
@@ -128,17 +129,18 @@ function buildMessages(args: {
             observation,
             retrievedEvidenceIds: ['one or more IDs from allowedEvidenceIds'],
             retrievedAssumptionIds: ['one or more IDs from allowedAssumptionIds'],
-            proposedAction: {
-              type: 'snake_case_action_name',
-              targetIds: [interventionId, 'metric IDs affected by the action'],
-              payload: {
-                agentRole: args.agent.role,
-                goal: args.agent.goal,
-                primaryConcern: args.agent.concerns[0],
-                interventionId,
-              },
-              metricEffects: {
-                [metricIds[0] ?? 'metric-id']: 0,
+          proposedAction: {
+            type: 'snake_case_action_name',
+            targetIds: [interventionId, 'metric IDs affected by the action'],
+            payload: {
+              agentRole: args.agent.role,
+              goal: args.agent.goal,
+              primaryConcern: args.agent.concerns[0],
+              interventionId,
+              targetZoneId: 'one ID from allowedZoneIds where the agent should go next',
+            },
+            metricEffects: {
+              [metricIds[0] ?? 'metric-id']: 0,
               },
             },
             reason: 'one concise sentence explaining why the agent chose this action',
@@ -147,6 +149,7 @@ function buildMessages(args: {
           allowedEvidenceIds: evidenceIds,
           allowedAssumptionIds: assumptionIds,
           allowedMetricIds: metricIds,
+          allowedZoneIds: zoneIds,
           allowedAgentId: args.agent.id,
           world: compactStateForPrompt(args.state, args.event),
           agent: args.agent,
@@ -258,6 +261,18 @@ function validateLocalReferences(args: {
   for (const assumptionId of args.decision.retrievedAssumptionIds) {
     if (!assumptionIds.has(assumptionId)) {
       throw new Error(`LLM decision references unknown assumption: ${assumptionId}`);
+    }
+  }
+
+  if (
+    typeof args.decision.proposedAction.payload === 'object' &&
+    args.decision.proposedAction.payload &&
+    'targetZoneId' in args.decision.proposedAction.payload
+  ) {
+    const targetZoneId = args.decision.proposedAction.payload.targetZoneId;
+    const zoneIds = new Set(args.state.zones.map((zone) => zone.id));
+    if (typeof targetZoneId !== 'string' || !zoneIds.has(targetZoneId)) {
+      throw new Error(`LLM decision references unknown target zone: ${String(targetZoneId)}`);
     }
   }
 }

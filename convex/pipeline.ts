@@ -122,6 +122,42 @@ function buildRetrievalResults(evidence: any[], assumptions: any[], traces: any[
   return [...evidenceResults, ...assumptionResults, ...traceResults];
 }
 
+function getTargetZoneIdFromAction(actionPayload: unknown) {
+  if (
+    typeof actionPayload === 'object' &&
+    actionPayload &&
+    'payload' in actionPayload &&
+    typeof actionPayload.payload === 'object' &&
+    actionPayload.payload &&
+    'targetZoneId' in actionPayload.payload &&
+    typeof actionPayload.payload.targetZoneId === 'string'
+  ) {
+    return actionPayload.payload.targetZoneId;
+  }
+  return undefined;
+}
+
+function fallbackTargetZoneIdForTrace(trace: any) {
+  const action = String(trace.actionType ?? '');
+  if (trace.actorId === 'teacher' || action.includes('workload') || action.includes('rubric')) {
+    return 'principal-office';
+  }
+  if (
+    trace.actorId === 'admissions-officer' ||
+    action.includes('admission') ||
+    action.includes('comparability')
+  ) {
+    return 'admissions-office';
+  }
+  if (trace.actorId === 'tutoring-owner' || action.includes('gaming') || action.includes('market')) {
+    return 'tutoring-street';
+  }
+  if (trace.actorId === 'principal' || action.includes('policy')) {
+    return 'teacher-office';
+  }
+  return 'principal-office';
+}
+
 export const runEducationReformDemo = action({
   args: {
     question: v.optional(v.string()),
@@ -283,6 +319,7 @@ export const runEducationReformDemo = action({
         tick: trace.tick,
         actorId: trace.actorId,
         actionType: trace.actionType,
+        targetZoneId: getTargetZoneIdFromAction(trace.actionPayload) ?? fallbackTargetZoneIdForTrace(trace),
         reason: trace.reason,
         evidenceIds: trace.evidenceIds,
         assumptionIds: trace.assumptionIds,

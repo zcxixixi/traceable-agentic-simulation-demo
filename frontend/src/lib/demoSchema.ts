@@ -34,6 +34,7 @@ export type VisualTraceEvent = {
   tick: number;
   actorId: string;
   actionType: string;
+  targetZoneId?: string;
   reason: string;
   evidenceIds: string[];
   assumptionIds: string[];
@@ -56,6 +57,10 @@ export type AgentDecision = {
   proposedAction: {
     type: string;
     targetIds: string[];
+    payload?: {
+      targetZoneId?: string;
+      [key: string]: unknown;
+    };
     metricEffects: Record<string, number>;
   };
   reason: string;

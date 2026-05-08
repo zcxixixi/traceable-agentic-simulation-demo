@@ -95,6 +95,25 @@ type AgentPieces = {
   frameRow: number;
 };
 
+function fallbackTargetZoneId(trace: VisualTraceEvent | undefined, agent: VisualAgent) {
+  if (trace?.targetZoneId) return trace.targetZoneId;
+
+  const action = trace?.actionType ?? '';
+  if (agent.id === 'teacher' || action.includes('workload') || action.includes('rubric')) {
+    return 'principal-office';
+  }
+  if (agent.id === 'admissions-officer' || action.includes('admission') || action.includes('comparability')) {
+    return 'admissions-office';
+  }
+  if (agent.id === 'tutoring-owner' || action.includes('gaming') || action.includes('market')) {
+    return 'tutoring-street';
+  }
+  if (agent.id === 'principal' || action.includes('policy')) {
+    return 'teacher-office';
+  }
+  return 'principal-office';
+}
+
 function createAgentSprite(texture: Texture, agent: VisualAgent, active: boolean) {
   const frame = new Rectangle(0, agent.spriteRow * 32, 32, 32);
   const container = new Container();
@@ -173,6 +192,20 @@ function drawTracePath(container: Container, agent: VisualAgent, trace?: VisualT
   return path;
 }
 
+function drawMovementPath(
+  path: Graphics,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  color: number,
+) {
+  path.clear();
+  path.lineStyle(6, color, 0.88);
+  path.moveTo(from.x, from.y + 8);
+  path.lineTo(to.x, to.y + 8);
+  path.lineStyle(2, 0xffffff, 0.65);
+  path.drawCircle(to.x, to.y + 8, 26);
+}
+
 export function RPPixiWorld({
   result,
   selectedAgentId,
@@ -246,12 +279,12 @@ export function RPPixiWorld({
           pieces.targetY = zone.y + zone.height / 2 + 22;
           onMoveAgentToZone(selectedAgentId, zone.id);
 
-          commandPath.clear();
-          commandPath.lineStyle(6, 0x72d46a, 0.88);
-          commandPath.moveTo(pieces.container.x, pieces.container.y + 8);
-          commandPath.lineTo(pieces.targetX, pieces.targetY + 8);
-          commandPath.lineStyle(2, 0xffffff, 0.65);
-          commandPath.drawCircle(pieces.targetX, pieces.targetY + 8, 26);
+          drawMovementPath(
+            commandPath,
+            { x: pieces.container.x, y: pieces.container.y },
+            { x: pieces.targetX, y: pieces.targetY },
+            0x72d46a,
+          );
         });
       });
 
@@ -263,6 +296,24 @@ export function RPPixiWorld({
         pieces.container.on('pointerdown', () => onSelectAgent(agent.id));
         root.addChild(pieces.container);
         agentPieces.push(pieces);
+      }
+
+      if (isPlaying && selectedTrace) {
+        const actorPieces = agentPieces.find((candidate) => candidate.agent.id === selectedTrace.actorId);
+        if (actorPieces) {
+          const targetZoneId = fallbackTargetZoneId(selectedTrace, actorPieces.agent);
+          const targetZone = result.compiledState.zones.find((zone) => zone.id === targetZoneId);
+          if (targetZone) {
+            actorPieces.targetX = targetZone.x + targetZone.width / 2;
+            actorPieces.targetY = targetZone.y + targetZone.height / 2 + 22;
+            drawMovementPath(
+              commandPath,
+              { x: actorPieces.container.x, y: actorPieces.container.y },
+              { x: actorPieces.targetX, y: actorPieces.targetY },
+              0xfff06a,
+            );
+          }
+        }
       }
 
       let elapsed = 0;

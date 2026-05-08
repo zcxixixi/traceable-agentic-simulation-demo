@@ -41,6 +41,14 @@ export function App() {
     () => result.traceEvents.find((trace) => trace.id === selectedTraceId),
     [result.traceEvents, selectedTraceId],
   );
+  const selectedTraceAgent = useMemo(
+    () => result.compiledState.agents.find((agent) => agent.id === selectedTrace?.actorId),
+    [result.compiledState.agents, selectedTrace?.actorId],
+  );
+  const selectedTraceZone = useMemo(
+    () => result.compiledState.zones.find((zone) => zone.id === selectedTrace?.targetZoneId),
+    [result.compiledState.zones, selectedTrace?.targetZoneId],
+  );
 
   useEffect(() => {
     if (!isPlaying || isRunning || result.traceEvents.length === 0) return undefined;
@@ -116,7 +124,7 @@ export function App() {
             type="button"
             onClick={() => setIsPlaying((value) => !value)}
           >
-            {isPlaying ? 'Auto play' : 'Paused'}
+            {isPlaying ? 'Autonomous' : 'Paused'}
           </button>
           <div className="agent-toggle" aria-label="Agent count">
             <button
@@ -167,7 +175,11 @@ export function App() {
             />
             <div className="world-hint">
               <strong>Play</strong>
-              <span>Click a character, then click a building.</span>
+              <span>
+                {isPlaying
+                  ? 'Agents are acting from their own trace decisions.'
+                  : 'Click a character, then click a building.'}
+              </span>
               {visualCommands.map((command) => (
                 <small key={command}>{command}</small>
               ))}
@@ -176,7 +188,13 @@ export function App() {
           <div className="story-bar">
             <span>Current event</span>
             <strong>{selectedTrace?.actionType ?? 'Waiting for agent action'}</strong>
-            <p>{selectedTrace?.reason ?? 'Select a character or run the pipeline to generate a live event.'}</p>
+            <p>
+              {selectedTrace
+                ? `${selectedTraceAgent?.name ?? selectedTrace.actorId} decided to ${selectedTrace.actionType}${
+                    selectedTraceZone ? ` at ${selectedTraceZone.name}` : ''
+                  }. ${selectedTrace.reason}`
+                : 'Select a character or run the pipeline to generate a live event.'}
+            </p>
           </div>
         </section>
 

@@ -215,6 +215,7 @@ export const samplePipelineResult: PipelineRunResult = {
       tick: 1,
       actorId: 'student',
       actionType: 'request_fairness_guarantee',
+      targetZoneId: 'principal-office',
       reason:
         'Student reacts to unequal family support risk before accepting the reform as fair.',
       evidenceIds: ['EV2'],
@@ -226,6 +227,7 @@ export const samplePipelineResult: PipelineRunResult = {
       tick: 1,
       actorId: 'teacher',
       actionType: 'raise_workload_concern',
+      targetZoneId: 'principal-office',
       reason:
         'Teacher flags the grading and feedback burden created by open-ended projects.',
       evidenceIds: ['EV3'],
@@ -237,6 +239,7 @@ export const samplePipelineResult: PipelineRunResult = {
       tick: 1,
       actorId: 'admissions-officer',
       actionType: 'challenge_signal_comparability',
+      targetZoneId: 'admissions-office',
       reason:
         'Admissions officer reduces trust because project outputs are less comparable than standardized exams.',
       evidenceIds: ['EV1'],
