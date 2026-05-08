@@ -9,6 +9,14 @@ import { AuditableReport } from '../features/report/AuditableReport';
 import { RetrievalPanel } from '../features/retrieval/RetrievalPanel';
 import { PipelineTimeline } from '../features/pipeline/PipelineTimeline';
 
+const moduleSummary = [
+  'World',
+  'Evidence',
+  'Agents',
+  'Trace',
+  'Report',
+];
+
 export function App() {
   const [result, setResult] = useState(samplePipelineResult);
   const [question, setQuestion] = useState(samplePipelineResult.question);
@@ -86,9 +94,10 @@ export function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <div>
+        <div className="title-block">
           <p className="eyebrow">Traceable Agentic Simulation</p>
-          <h1>AI Town-style RP Pipeline</h1>
+          <h1>Policy Town Simulator</h1>
+          <p className="hero-line">A playable AI town for testing real-world decisions.</p>
           <textarea
             className="question-input"
             value={question}
@@ -97,8 +106,8 @@ export function App() {
           />
           <p className="run-status">
             {lastRunSource === 'convex'
-              ? 'Live Convex pipeline result'
-              : 'Sample pipeline loaded. Run the full pipeline to call Convex + LLM agents.'}
+              ? 'Live Convex + LLM run'
+              : 'Sample world loaded. Run the pipeline when ready.'}
           </p>
         </div>
         <div className="run-controls">
@@ -140,22 +149,34 @@ export function App() {
         </div>
       )}
 
-      <main className="dashboard">
-        <section className="world-surface">
-          <RPPixiWorld
-            result={result}
-            selectedAgentId={selectedAgentId}
-            selectedTraceId={selectedTraceId}
-            isPlaying={isPlaying && !isRunning}
-            onSelectAgent={setSelectedAgentId}
-            onMoveAgentToZone={moveSelectedAgent}
-          />
-          <div className="world-hint">
-            <strong>Interactive mode</strong>
-            <span>Click an agent, then click a zone to move it.</span>
-            {visualCommands.map((command) => (
-              <small key={command}>{command}</small>
+      <main className="simulator-layout">
+        <section className="playfield-card">
+          <div className="hud-strip">
+            {moduleSummary.map((module) => (
+              <span key={module}>{module}</span>
             ))}
+          </div>
+          <section className="world-surface">
+            <RPPixiWorld
+              result={result}
+              selectedAgentId={selectedAgentId}
+              selectedTraceId={selectedTraceId}
+              isPlaying={isPlaying && !isRunning}
+              onSelectAgent={setSelectedAgentId}
+              onMoveAgentToZone={moveSelectedAgent}
+            />
+            <div className="world-hint">
+              <strong>Play</strong>
+              <span>Click a character, then click a building.</span>
+              {visualCommands.map((command) => (
+                <small key={command}>{command}</small>
+              ))}
+            </div>
+          </section>
+          <div className="story-bar">
+            <span>Current event</span>
+            <strong>{selectedTrace?.actionType ?? 'Waiting for agent action'}</strong>
+            <p>{selectedTrace?.reason ?? 'Select a character or run the pipeline to generate a live event.'}</p>
           </div>
         </section>
 
@@ -168,17 +189,22 @@ export function App() {
           <MetricPanel metrics={result.compiledState.metrics} />
         </aside>
 
-        <PipelineTimeline result={result} />
-        <TraceTimeline
-          traces={result.traceEvents}
-          selectedTraceId={selectedTraceId}
-          onSelectTrace={(traceId, actorId) => {
-            setSelectedTraceId(traceId);
-            setSelectedAgentId(actorId);
-          }}
-        />
-        <RetrievalPanel results={result.retrievalResults} />
-        <AuditableReport result={result} />
+        <section className="bottom-dock">
+          <TraceTimeline
+            traces={result.traceEvents}
+            selectedTraceId={selectedTraceId}
+            onSelectTrace={(traceId, actorId) => {
+              setSelectedTraceId(traceId);
+              setSelectedAgentId(actorId);
+            }}
+          />
+          <AuditableReport result={result} />
+        </section>
+
+        <section className="system-drawer">
+          <PipelineTimeline result={result} />
+          <RetrievalPanel results={result.retrievalResults} />
+        </section>
       </main>
     </div>
   );

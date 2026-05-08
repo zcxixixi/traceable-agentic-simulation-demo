@@ -1,8 +1,8 @@
 :root {
   color-scheme: dark;
-  --bg: #17110d;
-  --panel: #2b1d14;
-  --panel-soft: #3a281c;
+  --bg: #100d0a;
+  --panel: #241811;
+  --panel-soft: #342215;
   --ink: #fff3d7;
   --muted: #c8b58f;
   --line: rgba(255, 226, 160, 0.22);
@@ -16,11 +16,13 @@
 
 body {
   margin: 0;
-  min-width: 1120px;
+  min-width: 1040px;
   background:
-    linear-gradient(rgba(20, 13, 8, 0.82), rgba(20, 13, 8, 0.92)),
+    radial-gradient(circle at 50% -20%, rgba(255, 209, 95, 0.16), transparent 36%),
+    linear-gradient(rgba(16, 10, 6, 0.76), rgba(16, 10, 6, 0.94)),
     url('/ai-town/assets/magecity.png') center / cover fixed;
   color: var(--ink);
+  overflow-x: hidden;
 }
 
 button {
@@ -29,16 +31,27 @@ button {
 
 .app-shell {
   min-height: 100vh;
-  padding: 18px;
+  padding: 14px;
 }
 
 .app-header {
-  display: flex;
-  align-items: end;
+  display: grid;
+  grid-template-columns: minmax(420px, 1fr) auto;
+  align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  margin: 0 auto 14px;
-  max-width: 1500px;
+  gap: 18px;
+  max-width: 1580px;
+  margin: 0 auto 12px;
+  border: 3px solid rgba(255, 209, 95, 0.18);
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(31, 19, 12, 0.92), rgba(19, 12, 8, 0.72));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.34);
+  padding: 12px 14px;
+}
+
+.title-block {
+  display: block;
+  min-width: 0;
 }
 
 .eyebrow {
@@ -57,8 +70,9 @@ p {
 }
 
 h1 {
-  font-size: 28px;
+  font-size: 32px;
   letter-spacing: 0;
+  line-height: 1;
 }
 
 h2 {
@@ -66,17 +80,18 @@ h2 {
   font-size: 17px;
 }
 
-.question {
-  max-width: 860px;
-  margin-top: 8px;
+.hero-line {
+  margin-top: 6px;
   color: var(--muted);
-  line-height: 1.45;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .question-input {
-  width: min(860px, 100%);
-  min-height: 66px;
-  margin-top: 8px;
+  display: block;
+  width: min(520px, 100%);
+  min-height: 58px;
+  margin-top: 10px;
   border: 2px solid var(--line);
   border-radius: 7px;
   background: rgba(20, 12, 7, 0.62);
@@ -100,9 +115,12 @@ h2 {
 }
 
 .run-controls {
-  display: grid;
+  display: flex;
+  align-items: center;
   gap: 10px;
-  justify-items: end;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 380px;
 }
 
 .play-toggle {
@@ -150,7 +168,7 @@ h2 {
 }
 
 .run-button {
-  min-width: 170px;
+  min-width: 154px;
   border: 3px solid #1f140d;
   border-radius: 6px;
   background: linear-gradient(#ffe18a, #d68f35);
@@ -194,23 +212,46 @@ h2 {
   overflow-wrap: anywhere;
 }
 
-.dashboard {
+.simulator-layout {
   display: grid;
-  grid-template-columns: minmax(760px, 1fr) 370px;
-  grid-template-rows: 620px auto auto;
-  gap: 14px;
-  max-width: 1500px;
+  grid-template-columns: minmax(760px, 1fr) 350px;
+  grid-template-rows: minmax(640px, calc(100vh - 198px)) auto auto;
+  gap: 12px;
+  max-width: 1580px;
   margin: 0 auto;
+}
+
+.playfield-card {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 0;
+}
+
+.hud-strip {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.hud-strip span {
+  border: 2px solid rgba(255, 209, 95, 0.2);
+  border-radius: 6px;
+  background: rgba(20, 12, 7, 0.72);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 900;
+  padding: 7px 10px;
+  text-transform: uppercase;
 }
 
 .world-surface {
   position: relative;
-  min-height: 620px;
+  min-height: 0;
   overflow: hidden;
   border: 8px solid #382214;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #7ab5ff;
-  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 20px 56px rgba(0, 0, 0, 0.52);
 }
 
 .pixi-host {
@@ -231,10 +272,10 @@ h2 {
   bottom: 16px;
   display: grid;
   gap: 4px;
-  max-width: 360px;
+  max-width: 330px;
   border: 2px solid rgba(255, 209, 95, 0.38);
   border-radius: 7px;
-  background: rgba(24, 14, 8, 0.78);
+  background: rgba(24, 14, 8, 0.86);
   color: var(--muted);
   padding: 10px 12px;
   pointer-events: none;
@@ -242,7 +283,7 @@ h2 {
 
 .world-hint strong {
   color: var(--accent);
-  font-size: 12px;
+  font-size: 13px;
   text-transform: uppercase;
 }
 
@@ -254,6 +295,38 @@ h2 {
 
 .world-hint small {
   color: #dff6c9;
+}
+
+.story-bar {
+  display: grid;
+  grid-template-columns: 110px minmax(180px, 260px) 1fr;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  border: 4px solid #3c2618;
+  border-radius: 8px;
+  background: rgba(32, 20, 13, 0.94);
+  padding: 12px 14px;
+}
+
+.story-bar span {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.story-bar strong {
+  overflow: hidden;
+  color: var(--ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.story-bar p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.35;
 }
 
 .right-rail {
@@ -269,6 +342,10 @@ h2 {
   background: linear-gradient(180deg, rgba(53, 35, 24, 0.97), rgba(37, 24, 17, 0.98));
   box-shadow: inset 0 0 0 2px rgba(255, 225, 157, 0.1), 0 14px 32px rgba(0, 0, 0, 0.32);
   padding: 14px;
+}
+
+.right-rail .panel {
+  flex: none;
 }
 
 .panel p {
@@ -373,7 +450,7 @@ h2 {
 .trace-panel,
 .retrieval-panel,
 .report-panel {
-  min-height: 210px;
+  min-height: 0;
 }
 
 .step-row {
@@ -407,6 +484,34 @@ h2 {
   text-align: left;
 }
 
+.trace-list,
+.claim-list,
+.retrieval-list,
+.step-list {
+  max-height: 260px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.bottom-dock {
+  display: grid;
+  grid-column: span 2;
+  grid-template-columns: minmax(340px, 0.9fr) minmax(520px, 1.1fr);
+  gap: 12px;
+}
+
+.bottom-dock .report-panel {
+  grid-column: auto;
+}
+
+.system-drawer {
+  display: grid;
+  grid-column: span 2;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  opacity: 0.86;
+}
+
 .trace-card {
   cursor: pointer;
 }
@@ -429,27 +534,35 @@ h2 {
   gap: 12px;
 }
 
-.report-panel {
-  grid-column: span 2;
-}
-
 @media (max-width: 1180px) {
   body {
     min-width: 0;
   }
 
-  .dashboard {
+  .simulator-layout {
     grid-template-columns: 1fr;
-    grid-template-rows: 560px auto;
+    grid-template-rows: 620px auto auto;
   }
 
-  .report-panel {
-    grid-column: span 1;
+  .title-block,
+  .bottom-dock,
+  .system-drawer {
+    grid-template-columns: 1fr;
   }
 
   .app-header {
     align-items: start;
-    flex-direction: column;
+    grid-template-columns: 1fr;
+  }
+
+  .right-rail,
+  .bottom-dock,
+  .system-drawer {
+    grid-column: span 1;
+  }
+
+  .story-bar {
+    grid-template-columns: 1fr;
   }
 }
 
