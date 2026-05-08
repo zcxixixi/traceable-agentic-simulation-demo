@@ -16,6 +16,7 @@ const moduleSummary = [
   'Trace',
   'Report',
 ];
+const demoStepMs = 3800;
 
 export function App() {
   const [result, setResult] = useState(samplePipelineResult);
@@ -28,6 +29,7 @@ export function App() {
   const [maxAgents, setMaxAgents] = useState(3);
   const [isPlaying, setIsPlaying] = useState(true);
   const [visualCommands, setVisualCommands] = useState<string[]>([]);
+  const [motionKey, setMotionKey] = useState(0);
 
   const selectedAgent = useMemo(
     () => result.compiledState.agents.find((agent) => agent.id === selectedAgentId),
@@ -39,6 +41,10 @@ export function App() {
   );
   const selectedTrace = useMemo(
     () => result.traceEvents.find((trace) => trace.id === selectedTraceId),
+    [result.traceEvents, selectedTraceId],
+  );
+  const selectedTraceIndex = useMemo(
+    () => Math.max(0, result.traceEvents.findIndex((trace) => trace.id === selectedTraceId)),
     [result.traceEvents, selectedTraceId],
   );
   const selectedTraceAgent = useMemo(
@@ -63,10 +69,33 @@ export function App() {
         }
         return currentTraceId;
       });
-    }, 2100);
+    }, demoStepMs);
 
     return () => window.clearInterval(interval);
   }, [isPlaying, isRunning, result.traceEvents]);
+
+  function selectAgent(agentId: string) {
+    setSelectedAgentId(agentId);
+    const trace = result.traceEvents.find((candidate) => candidate.actorId === agentId);
+    if (trace) {
+      setSelectedTraceId(trace.id);
+      setMotionKey((value) => value + 1);
+    }
+  }
+
+  function startDemo() {
+    const firstTrace = samplePipelineResult.traceEvents[0];
+    setResult(samplePipelineResult);
+    setQuestion(samplePipelineResult.question);
+    setRunError(undefined);
+    setIsRunning(false);
+    setIsPlaying(true);
+    setLastRunSource('sample');
+    setSelectedAgentId(firstTrace?.actorId ?? samplePipelineResult.compiledState.agents[0]?.id ?? 'student');
+    setSelectedTraceId(firstTrace?.id);
+    setVisualCommands(['Demo reset: agents will replay their decisions']);
+    setMotionKey((value) => value + 1);
+  }
 
   async function runPipeline() {
     setIsRunning(true);
@@ -80,8 +109,12 @@ export function App() {
       setSelectedAgentId(firstAgentId);
       setSelectedTraceId(firstTraceId);
       setLastRunSource('convex');
+      setIsPlaying(true);
+      setMotionKey((value) => value + 1);
     } catch (error) {
-      setRunError(error instanceof Error ? error.message : String(error));
+      const message = error instanceof Error ? error.message : String(error);
+      setRunError(`${message}. Demo stayed on the local scripted run.`);
+      setLastRunSource('sample');
     } finally {
       setIsRunning(false);
     }
@@ -115,7 +148,7 @@ export function App() {
           <p className="run-status">
             {lastRunSource === 'convex'
               ? 'Live Convex + LLM run'
-              : 'Sample world loaded. Run the pipeline when ready.'}
+              : 'Local scripted demo ready. Use Live backend only when Convex is running.'}
           </p>
         </div>
         <div className="run-controls">
@@ -144,8 +177,11 @@ export function App() {
               Full 6
             </button>
           </div>
-          <button className="run-button" type="button" onClick={runPipeline} disabled={isRunning}>
-            {isRunning ? `Running ${maxAgents} agents` : 'Run pipeline'}
+          <button className="run-button" type="button" onClick={startDemo} disabled={isRunning}>
+            Start demo
+          </button>
+          <button className="live-button" type="button" onClick={runPipeline} disabled={isRunning}>
+            {isRunning ? `Running ${maxAgents}` : 'Live backend'}
           </button>
         </div>
       </header>
@@ -170,7 +206,8 @@ export function App() {
               selectedAgentId={selectedAgentId}
               selectedTraceId={selectedTraceId}
               isPlaying={isPlaying && !isRunning}
-              onSelectAgent={setSelectedAgentId}
+              motionKey={motionKey}
+              onSelectAgent={selectAgent}
               onMoveAgentToZone={moveSelectedAgent}
             />
             <div className="world-hint">
@@ -186,7 +223,7 @@ export function App() {
             </div>
           </section>
           <div className="story-bar">
-            <span>Current event</span>
+            <span>Step {result.traceEvents.length > 0 ? selectedTraceIndex + 1 : 0}/{result.traceEvents.length}</span>
             <strong>{selectedTrace?.actionType ?? 'Waiting for agent action'}</strong>
             <p>
               {selectedTrace
@@ -214,6 +251,7 @@ export function App() {
             onSelectTrace={(traceId, actorId) => {
               setSelectedTraceId(traceId);
               setSelectedAgentId(actorId);
+              setMotionKey((value) => value + 1);
             }}
           />
           <AuditableReport result={result} />

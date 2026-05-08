@@ -17,6 +17,7 @@ type Props = {
   selectedAgentId?: string;
   selectedTraceId?: string;
   isPlaying: boolean;
+  motionKey: number;
   onSelectAgent: (agentId: string) => void;
   onMoveAgentToZone: (agentId: string, zoneId: string) => void;
 };
@@ -274,6 +275,7 @@ export function RPPixiWorld({
   selectedAgentId,
   selectedTraceId,
   isPlaying,
+  motionKey,
   onSelectAgent,
   onMoveAgentToZone,
 }: Props) {
@@ -285,6 +287,7 @@ export function RPPixiWorld({
   const selectedAgentIdRef = useRef(selectedAgentId);
   const selectedTraceRef = useRef(selectedTrace);
   const isPlayingRef = useRef(isPlaying);
+  const motionKeyRef = useRef(motionKey);
   const onSelectAgentRef = useRef(onSelectAgent);
   const onMoveAgentToZoneRef = useRef(onMoveAgentToZone);
 
@@ -292,9 +295,10 @@ export function RPPixiWorld({
     selectedAgentIdRef.current = selectedAgentId;
     selectedTraceRef.current = selectedTrace;
     isPlayingRef.current = isPlaying;
+    motionKeyRef.current = motionKey;
     onSelectAgentRef.current = onSelectAgent;
     onMoveAgentToZoneRef.current = onMoveAgentToZone;
-  }, [isPlaying, onMoveAgentToZone, onSelectAgent, selectedAgentId, selectedTrace]);
+  }, [isPlaying, motionKey, onMoveAgentToZone, onSelectAgent, selectedAgentId, selectedTrace]);
 
   useEffect(() => {
     if (!hostRef.current) return;
@@ -364,7 +368,7 @@ export function RPPixiWorld({
         agentPiecesById.set(agent.id, pieces);
       }
 
-      let lastAutonomousTraceId: string | undefined;
+      let lastAutonomousTraceKey: string | undefined;
       let elapsed = 0;
       app.ticker.add((delta) => {
         elapsed += delta / 60;
@@ -374,11 +378,12 @@ export function RPPixiWorld({
         const shouldPlay = isPlayingRef.current;
 
         if (!shouldPlay) {
-          lastAutonomousTraceId = undefined;
+          lastAutonomousTraceKey = undefined;
         }
 
-        if (shouldPlay && currentTrace && currentTrace.id !== lastAutonomousTraceId) {
-          lastAutonomousTraceId = currentTrace.id;
+        const currentTraceKey = currentTrace ? `${motionKeyRef.current}:${currentTrace.id}` : undefined;
+        if (shouldPlay && currentTrace && currentTraceKey !== lastAutonomousTraceKey) {
+          lastAutonomousTraceKey = currentTraceKey;
           const actorPieces = agentPiecesById.get(currentTrace.actorId);
           if (actorPieces) {
             const targetZoneId = fallbackTargetZoneId(currentTrace, actorPieces.agent);
