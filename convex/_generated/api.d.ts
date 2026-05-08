@@ -18,6 +18,7 @@ import type * as reports from "../reports.js";
 import type * as runtime from "../runtime.js";
 import type * as scenarios from "../scenarios.js";
 import type * as seed from "../seed.js";
+import type * as simulationLoop from "../simulationLoop.js";
 import type * as tests from "../tests.js";
 import type * as traces from "../traces.js";
 import type * as worldSpecs from "../worldSpecs.js";
@@ -39,6 +40,7 @@ declare const fullApi: ApiFromModules<{
   runtime: typeof runtime;
   scenarios: typeof scenarios;
   seed: typeof seed;
+  simulationLoop: typeof simulationLoop;
   tests: typeof tests;
   traces: typeof traces;
   worldSpecs: typeof worldSpecs;

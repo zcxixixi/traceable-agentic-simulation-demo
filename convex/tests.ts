@@ -175,6 +175,36 @@ export const runAll = action({
     }
 
     try {
+      const loopScenarioId = await ctx.runMutation(api.seed.educationReformScenario);
+      await ctx.runMutation(api.compiler.compileScenario, {
+        scenarioId: loopScenarioId.scenarioId,
+        activeInterventionId: 'replace-exams',
+      });
+      const started = await ctx.runMutation(api.simulationLoop.startFromCompiledScenario, {
+        scenarioId: loopScenarioId.scenarioId,
+        maxTicks: 1,
+        tickIntervalMs: 1000,
+        autoStart: false,
+      });
+      const tickResult = await ctx.runMutation(api.simulationLoop.tickWorld, {
+        runId: started.runId,
+        scheduleNext: false,
+      });
+      const snapshot = await ctx.runQuery(api.simulationLoop.getRunSnapshot, {
+        runId: started.runId,
+      });
+      assert(tickResult.tick === 1, 'Simulation loop should advance to tick 1');
+      assert(tickResult.status === 'completed', 'Simulation loop should complete at maxTicks=1');
+      assert(snapshot?.agents.length === 6, 'Simulation loop should persist live agents');
+      assert(snapshot?.events.length >= 7, 'Simulation loop should persist world events');
+      assert(snapshot?.traces.length >= 6, 'Simulation loop should persist trace events');
+      assert(snapshot?.world?.tick === 1, 'Simulation loop should update world tick');
+      results.push(pass('SimulationLoop', 'real backend loop executed', String(started.runId)));
+    } catch (error) {
+      results.push(fail('SimulationLoop', 'real backend loop executed', error));
+    }
+
+    try {
       const agentScenarioId = await ctx.runMutation(api.seed.educationReformScenario);
       await ctx.runMutation(api.compiler.compileScenario, {
         scenarioId: agentScenarioId.scenarioId,
