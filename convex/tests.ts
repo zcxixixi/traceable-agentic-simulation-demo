@@ -191,7 +191,7 @@ export const runAll = action({
         scheduleNext: false,
       });
       const snapshot = await ctx.runQuery(api.simulationLoop.getRunSnapshot, {
-        runId: started.runId,
+        runId: started.runId as any,
       });
       assert(tickResult.tick === 1, 'Simulation loop should advance to tick 1');
       assert(tickResult.status === 'completed', 'Simulation loop should complete at maxTicks=1');
@@ -202,6 +202,26 @@ export const runAll = action({
       results.push(pass('SimulationLoop', 'real backend loop executed', String(started.runId)));
     } catch (error) {
       results.push(fail('SimulationLoop', 'real backend loop executed', error));
+    }
+
+    try {
+      const started = await ctx.runAction(api.simulationLoop.startEducationReformTown, {
+        question:
+          'If high schools replace traditional exams with AI-assisted project-based assessment, what happens?',
+        maxTicks: 1,
+        tickIntervalMs: 1000,
+      });
+      const snapshot = await ctx.runQuery(api.simulationLoop.getRunSnapshot, {
+        runId: started.runId as any,
+      });
+      assert(started.scenarioId, 'Real town action should return a scenarioId');
+      assert(started.worldId, 'Real town action should return a worldId');
+      assert(started.runId, 'Real town action should return a runId');
+      assert(snapshot?.world, 'Real town action should create a world');
+      assert(snapshot?.agents.length === 6, 'Real town action should create live agents');
+      results.push(pass('SimulationLoop', 'education reform town started', String(started.runId)));
+    } catch (error) {
+      results.push(fail('SimulationLoop', 'education reform town started', error));
     }
 
     try {

@@ -1,6 +1,6 @@
 import { v } from 'convex/values';
 import { api } from './_generated/api';
-import { mutation, query } from './_generated/server';
+import { action, mutation, query } from './_generated/server';
 
 type Confidence = 'low' | 'medium' | 'high';
 
@@ -51,6 +51,8 @@ type TickDecision = {
   reason: string;
   confidence: Confidence;
 };
+
+type DecisionProvider = 'deterministic' | 'llm';
 
 const policyByAgent: Record<
   string,
@@ -153,7 +155,7 @@ async function retrieveContext(ctx: any, world: LiveWorld, agent: LiveAgent): Pr
   };
 }
 
-function decide(world: LiveWorld, agent: LiveAgent, context: RetrievedContext): TickDecision {
+function decideDeterministically(world: LiveWorld, agent: LiveAgent, context: RetrievedContext): TickDecision {
   const policy = policyByAgent[agent.agentId] ?? {
     actionType: 'monitor_world_state',
     targetZoneId: agent.locationZoneId,
@@ -178,6 +180,58 @@ function decide(world: LiveWorld, agent: LiveAgent, context: RetrievedContext): 
     confidence: policy.confidence,
   };
 }
+
+function decideWithProvider(
+  provider: DecisionProvider,
+  world: LiveWorld,
+  agent: LiveAgent,
+  context: RetrievedContext,
+): TickDecision {
+  if (provider === 'llm') {
+    // The loop keeps LLM behind this boundary. V1 intentionally uses deterministic
+    // decisions until the live town UI proves the state/trace pipeline is stable.
+    return decideDeterministically(world, agent, context);
+  }
+  return decideDeterministically(world, agent, context);
+}
+
+export const startEducationReformTown = action({
+  args: {
+    question: v.optional(v.string()),
+    maxTicks: v.optional(v.number()),
+    tickIntervalMs: v.optional(v.number()),
+    decisionProvider: v.optional(v.union(v.literal('deterministic'), v.literal('llm'))),
+  },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    scenarioId: string;
+    worldId: string;
+    runId: string;
+  }> => {
+    void args.question;
+    void args.decisionProvider;
+
+    const seeded: { scenarioId: any } = await ctx.runMutation(api.seed.educationReformScenario);
+    await ctx.runMutation(api.compiler.compileScenario, {
+      scenarioId: seeded.scenarioId,
+      activeInterventionId: 'replace-exams',
+    });
+    const started: { worldId: any; runId: any } = await ctx.runMutation(api.simulationLoop.startFromCompiledScenario, {
+      scenarioId: seeded.scenarioId,
+      maxTicks: args.maxTicks,
+      tickIntervalMs: args.tickIntervalMs,
+      autoStart: true,
+    });
+
+    return {
+      scenarioId: String(seeded.scenarioId),
+      worldId: String(started.worldId),
+      runId: String(started.runId),
+    };
+  },
+});
 
 function validateDecision(world: LiveWorld, agent: LiveAgent, decision: TickDecision) {
   const zoneIds = new Set(world.zones.map((zone) => zone.id));
@@ -342,7 +396,7 @@ export const tickWorld = mutation({
     for (const agent of agents) {
       const observation = observe(world, agent, recentEvents);
       const context = await retrieveContext(ctx, world, agent);
-      const decision = decide(world, agent, context);
+      const decision = decideWithProvider('deterministic', world, agent, context);
       validateDecision(world, agent, decision);
 
       const before = {

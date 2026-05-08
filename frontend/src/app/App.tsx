@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { samplePipelineResult } from '../lib/samplePipeline';
-import { runEducationReformPipeline } from '../lib/convexClient';
+import { loadRealTownSnapshot, runRealTown } from '../lib/convexClient';
 import { RPPixiWorld } from '../features/world/RPPixiWorld';
 import { AgentInspector } from '../features/world/AgentInspector';
 import { MetricPanel } from '../features/world/MetricPanel';
@@ -25,7 +25,8 @@ export function App() {
   const [selectedTraceId, setSelectedTraceId] = useState(result.traceEvents[0]?.id);
   const [isRunning, setIsRunning] = useState(false);
   const [runError, setRunError] = useState<string>();
-  const [lastRunSource, setLastRunSource] = useState<'sample' | 'convex'>('sample');
+  const [lastRunSource, setLastRunSource] = useState<'sample' | 'real-town'>('sample');
+  const [liveRunId, setLiveRunId] = useState<string>();
   const [maxAgents, setMaxAgents] = useState(3);
   const [isPlaying, setIsPlaying] = useState(true);
   const [visualCommands, setVisualCommands] = useState<string[]>([]);
@@ -74,6 +75,45 @@ export function App() {
     return () => window.clearInterval(interval);
   }, [isPlaying, isRunning, result.traceEvents]);
 
+  useEffect(() => {
+    if (!liveRunId || lastRunSource !== 'real-town') return undefined;
+
+    let cancelled = false;
+    async function refreshLiveTown() {
+      try {
+        const liveResult = await loadRealTownSnapshot(liveRunId!);
+        if (cancelled) return;
+
+        setRunError(undefined);
+        setResult(liveResult);
+        setSelectedTraceId((currentTraceId) => {
+          if (currentTraceId && liveResult.traceEvents.some((trace) => trace.id === currentTraceId)) {
+            return currentTraceId;
+          }
+          const latestTrace = liveResult.traceEvents[liveResult.traceEvents.length - 1];
+          if (latestTrace) {
+            setSelectedAgentId(latestTrace.actorId);
+            setMotionKey((value) => value + 1);
+            return latestTrace.id;
+          }
+          return currentTraceId;
+        });
+      } catch (error) {
+        if (!cancelled) {
+          const message = error instanceof Error ? error.message : String(error);
+          setRunError(`Real town refresh failed: ${message}`);
+        }
+      }
+    }
+
+    void refreshLiveTown();
+    const interval = window.setInterval(refreshLiveTown, 1500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [lastRunSource, liveRunId]);
+
   function selectAgent(agentId: string) {
     setSelectedAgentId(agentId);
     const trace = result.traceEvents.find((candidate) => candidate.actorId === agentId);
@@ -91,30 +131,36 @@ export function App() {
     setIsRunning(false);
     setIsPlaying(true);
     setLastRunSource('sample');
+    setLiveRunId(undefined);
     setSelectedAgentId(firstTrace?.actorId ?? samplePipelineResult.compiledState.agents[0]?.id ?? 'student');
     setSelectedTraceId(firstTrace?.id);
     setVisualCommands(['Demo reset: agents will replay their decisions']);
     setMotionKey((value) => value + 1);
   }
 
-  async function runPipeline() {
+  async function startRealTown() {
     setIsRunning(true);
     setRunError(undefined);
 
     try {
-      const pipelineResult = await runEducationReformPipeline(question, maxAgents);
-      setResult(pipelineResult);
-      const firstAgentId = pipelineResult.compiledState.agents[0]?.id ?? 'student';
-      const firstTraceId = pipelineResult.traceEvents[0]?.id;
-      setSelectedAgentId(firstAgentId);
+      const started = await runRealTown(question, maxAgents === 3 ? 3 : 6, 1500);
+      setLiveRunId(started.runId);
+      const liveResult = await loadRealTownSnapshot(started.runId);
+      setRunError(undefined);
+      setResult(liveResult);
+      const firstAgentId = liveResult.compiledState.agents[0]?.id ?? 'student';
+      const firstTraceId = liveResult.traceEvents[0]?.id;
+      setSelectedAgentId(firstTraceId ? liveResult.traceEvents[0].actorId : firstAgentId);
       setSelectedTraceId(firstTraceId);
-      setLastRunSource('convex');
+      setLastRunSource('real-town');
       setIsPlaying(true);
+      setVisualCommands([`Real town started: ${started.runId}`]);
       setMotionKey((value) => value + 1);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      setRunError(`${message}. Demo stayed on the local scripted run.`);
+      setRunError(`${message}. Local scripted demo is still available.`);
       setLastRunSource('sample');
+      setLiveRunId(undefined);
     } finally {
       setIsRunning(false);
     }
@@ -146,9 +192,9 @@ export function App() {
             aria-label="Decision question"
           />
           <p className="run-status">
-            {lastRunSource === 'convex'
-              ? 'Live Convex + LLM run'
-              : 'Local scripted demo ready. Use Live backend only when Convex is running.'}
+            {lastRunSource === 'real-town'
+              ? `Real backend town ${liveRunId ? `running: ${liveRunId}` : 'starting'}`
+              : 'Local scripted demo ready. Use Real town when Convex is running.'}
           </p>
         </div>
         <div className="run-controls">
@@ -180,8 +226,8 @@ export function App() {
           <button className="run-button" type="button" onClick={startDemo} disabled={isRunning}>
             Start demo
           </button>
-          <button className="live-button" type="button" onClick={runPipeline} disabled={isRunning}>
-            {isRunning ? `Running ${maxAgents}` : 'Live backend'}
+          <button className="live-button" type="button" onClick={startRealTown} disabled={isRunning}>
+            {isRunning ? 'Starting town' : 'Real town'}
           </button>
         </div>
       </header>
