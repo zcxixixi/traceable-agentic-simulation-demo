@@ -25,9 +25,23 @@ const worldWidth = 980;
 const worldHeight = 660;
 const tileSize = 32;
 
-function isHighlighted(agent: VisualAgent, trace?: VisualTraceEvent) {
-  return trace?.actorId === agent.id;
-}
+type Point = { x: number; y: number };
+
+const roadStops: Record<string, Point> = {
+  classroom: { x: 285, y: 205 },
+  'teacher-office': { x: 475, y: 160 },
+  'principal-office': { x: 740, y: 215 },
+  'admissions-office': { x: 750, y: 455 },
+  'tutoring-street': { x: 300, y: 470 },
+};
+
+const roadGraph: Record<string, string[]> = {
+  classroom: ['teacher-office'],
+  'teacher-office': ['classroom', 'principal-office', 'tutoring-street'],
+  'principal-office': ['teacher-office', 'admissions-office'],
+  'admissions-office': ['principal-office'],
+  'tutoring-street': ['teacher-office'],
+};
 
 function drawGround(container: Container) {
   const ground = new Graphics();
@@ -92,6 +106,7 @@ type AgentPieces = {
   baseY: number;
   targetX: number;
   targetY: number;
+  routePoints: Point[];
   frameRow: number;
 };
 
@@ -142,24 +157,19 @@ function createAgentSprite(texture: Texture, agent: VisualAgent, active: boolean
   bubble.drawCircle(23, -29, active ? 7 : 0);
   bubble.endFill();
 
-  const label = active
-    ? new Text(agent.name, {
-        fontFamily: 'monospace',
-        fontSize: 13,
-        fill: 0xfaf4dc,
-        stroke: 0x1e160e,
-        strokeThickness: 4,
-      })
-    : undefined;
-  if (label) {
-    label.anchor.set(0.5);
-    label.y = -42;
-  }
+  const label = new Text(agent.name, {
+    fontFamily: 'monospace',
+    fontSize: 13,
+    fill: 0xfaf4dc,
+    stroke: 0x1e160e,
+    strokeThickness: 4,
+  });
+  label.anchor.set(0.5);
+  label.y = -42;
+  label.alpha = active ? 1 : 0;
 
   container.addChild(shadow, ring, sprite, bubble);
-  if (label) {
-    container.addChild(label);
-  }
+  container.addChild(label);
 
   return {
     agent,
@@ -173,35 +183,88 @@ function createAgentSprite(texture: Texture, agent: VisualAgent, active: boolean
     baseY: agent.y,
     targetX: agent.x,
     targetY: agent.y,
+    routePoints: [],
     frameRow: agent.spriteRow,
   };
 }
 
-function drawTracePath(container: Container, agent: VisualAgent, trace?: VisualTraceEvent) {
-  const path = new Graphics();
-  if (!trace || trace.actorId !== agent.id) {
-    return path;
-  }
-
-  path.lineStyle(5, 0xfff06a, 0.7);
-  path.moveTo(agent.x, agent.y + 12);
-  path.bezierCurveTo(agent.x + 45, agent.y - 72, 500, 250, 700, 335);
-  path.lineStyle(2, 0xffffff, 0.4);
-  path.drawCircle(agent.x, agent.y + 12, 42);
-  container.addChild(path);
-  return path;
+function zoneTarget(zone: VisualZone) {
+  return {
+    x: zone.x + zone.width / 2,
+    y: zone.y + zone.height / 2 + 22,
+  };
 }
 
-function drawMovementPath(
-  path: Graphics,
-  from: { x: number; y: number },
-  to: { x: number; y: number },
-  color: number,
-) {
+function nearestRoadStopId(point: Point) {
+  return Object.entries(roadStops).reduce((best, [id, stop]) => {
+    const bestStop = roadStops[best];
+    const bestDistance = Math.hypot(bestStop.x - point.x, bestStop.y - point.y);
+    const stopDistance = Math.hypot(stop.x - point.x, stop.y - point.y);
+    return stopDistance < bestDistance ? id : best;
+  }, Object.keys(roadStops)[0]);
+}
+
+function findRoadPath(startId: string, targetId: string) {
+  const queue: string[][] = [[startId]];
+  const visited = new Set([startId]);
+
+  while (queue.length > 0) {
+    const path = queue.shift()!;
+    const current = path[path.length - 1];
+    if (current === targetId) return path;
+
+    for (const next of roadGraph[current] ?? []) {
+      if (visited.has(next)) continue;
+      visited.add(next);
+      queue.push([...path, next]);
+    }
+  }
+
+  return [startId, targetId];
+}
+
+function dedupeRoute(points: Point[]) {
+  return points.filter((point, index, route) => {
+    const previous = route[index - 1];
+    return !previous || Math.hypot(previous.x - point.x, previous.y - point.y) > 6;
+  });
+}
+
+function buildRoadRoute(from: Point, targetZone: VisualZone) {
+  const target = zoneTarget(targetZone);
+  const startStopId = nearestRoadStopId(from);
+  const targetStopId = roadStops[targetZone.id] ? targetZone.id : startStopId;
+  const routeStops = findRoadPath(startStopId, targetStopId).map((id) => roadStops[id]);
+  const route = [from, ...routeStops, target];
+
+  return dedupeRoute(route);
+}
+
+function setAgentRoute(pieces: AgentPieces, targetZone: VisualZone) {
+  const route = buildRoadRoute({ x: pieces.container.x, y: pieces.container.y }, targetZone);
+  pieces.routePoints = route.slice(1);
+  const finalPoint = route[route.length - 1];
+  pieces.targetX = finalPoint.x;
+  pieces.targetY = finalPoint.y;
+  return route;
+}
+
+function drawMovementPath(path: Graphics, route: Point[], color: number) {
   path.clear();
-  path.lineStyle(6, color, 0.88);
-  path.moveTo(from.x, from.y + 8);
-  path.lineTo(to.x, to.y + 8);
+  const drawRoute = () => {
+    route.forEach((point, index) => {
+      if (index === 0) {
+        path.moveTo(point.x, point.y + 8);
+        return;
+      }
+      path.lineTo(point.x, point.y + 8);
+    });
+  };
+  path.lineStyle(11, 0x1b1308, 0.42);
+  drawRoute();
+  path.lineStyle(5, color, 0.92);
+  drawRoute();
+  const to = route[route.length - 1];
   path.lineStyle(2, 0xffffff, 0.65);
   path.drawCircle(to.x, to.y + 8, 26);
 }
@@ -219,6 +282,19 @@ export function RPPixiWorld({
     () => result.traceEvents.find((trace) => trace.id === selectedTraceId),
     [result.traceEvents, selectedTraceId],
   );
+  const selectedAgentIdRef = useRef(selectedAgentId);
+  const selectedTraceRef = useRef(selectedTrace);
+  const isPlayingRef = useRef(isPlaying);
+  const onSelectAgentRef = useRef(onSelectAgent);
+  const onMoveAgentToZoneRef = useRef(onMoveAgentToZone);
+
+  useEffect(() => {
+    selectedAgentIdRef.current = selectedAgentId;
+    selectedTraceRef.current = selectedTrace;
+    isPlayingRef.current = isPlaying;
+    onSelectAgentRef.current = onSelectAgent;
+    onMoveAgentToZoneRef.current = onMoveAgentToZone;
+  }, [isPlaying, onMoveAgentToZone, onSelectAgent, selectedAgentId, selectedTrace]);
 
   useEffect(() => {
     if (!hostRef.current) return;
@@ -258,90 +334,95 @@ export function RPPixiWorld({
       drawGround(root);
 
       const agentPieces: AgentPieces[] = [];
-      const tracePaths: Graphics[] = [];
-      const metricPulse = new Graphics();
+      const agentPiecesById = new Map<string, AgentPieces>();
       const commandPath = new Graphics();
-      root.addChild(commandPath);
-      root.addChild(metricPulse);
 
-      const selectedAgent = result.compiledState.agents.find((agent) => agent.id === selectedAgentId);
       result.compiledState.zones.forEach((zone) => {
-        const active = selectedAgent?.zoneId === zone.id;
-        const zoneBox = drawZone(root, zone, active);
+        const zoneBox = drawZone(root, zone, false);
         zoneBox.eventMode = 'static';
-        zoneBox.cursor = selectedAgentId ? 'crosshair' : 'pointer';
+        zoneBox.cursor = 'crosshair';
         zoneBox.on('pointerdown', () => {
-          if (!selectedAgentId) return;
-          const pieces = agentPieces.find((candidate) => candidate.agent.id === selectedAgentId);
+          const currentAgentId = selectedAgentIdRef.current;
+          if (!currentAgentId) return;
+          const pieces = agentPiecesById.get(currentAgentId);
           if (!pieces) return;
 
-          pieces.targetX = zone.x + zone.width / 2;
-          pieces.targetY = zone.y + zone.height / 2 + 22;
-          onMoveAgentToZone(selectedAgentId, zone.id);
-
-          drawMovementPath(
-            commandPath,
-            { x: pieces.container.x, y: pieces.container.y },
-            { x: pieces.targetX, y: pieces.targetY },
-            0x72d46a,
-          );
+          const route = setAgentRoute(pieces, zone);
+          onMoveAgentToZoneRef.current(currentAgentId, zone.id);
+          drawMovementPath(commandPath, route, 0x72d46a);
         });
       });
 
+      root.addChild(commandPath);
+
       for (const agent of result.compiledState.agents) {
-        const active = selectedAgentId === agent.id || isHighlighted(agent, selectedTrace);
+        const active = selectedAgentIdRef.current === agent.id || selectedTraceRef.current?.actorId === agent.id;
         const pieces = createAgentSprite(texture, agent, active);
-        const path = drawTracePath(root, agent, selectedTrace);
-        tracePaths.push(path);
-        pieces.container.on('pointerdown', () => onSelectAgent(agent.id));
+        pieces.container.on('pointerdown', () => onSelectAgentRef.current(agent.id));
         root.addChild(pieces.container);
         agentPieces.push(pieces);
+        agentPiecesById.set(agent.id, pieces);
       }
 
-      if (isPlaying && selectedTrace) {
-        const actorPieces = agentPieces.find((candidate) => candidate.agent.id === selectedTrace.actorId);
-        if (actorPieces) {
-          const targetZoneId = fallbackTargetZoneId(selectedTrace, actorPieces.agent);
-          const targetZone = result.compiledState.zones.find((zone) => zone.id === targetZoneId);
-          if (targetZone) {
-            actorPieces.targetX = targetZone.x + targetZone.width / 2;
-            actorPieces.targetY = targetZone.y + targetZone.height / 2 + 22;
-            drawMovementPath(
-              commandPath,
-              { x: actorPieces.container.x, y: actorPieces.container.y },
-              { x: actorPieces.targetX, y: actorPieces.targetY },
-              0xfff06a,
-            );
-          }
-        }
-      }
-
+      let lastAutonomousTraceId: string | undefined;
       let elapsed = 0;
       app.ticker.add((delta) => {
         elapsed += delta / 60;
         const slowPulse = (Math.sin(elapsed * Math.PI * 2) + 1) / 2;
+        const currentTrace = selectedTraceRef.current;
+        const currentSelectedAgentId = selectedAgentIdRef.current;
+        const shouldPlay = isPlayingRef.current;
+
+        if (!shouldPlay) {
+          lastAutonomousTraceId = undefined;
+        }
+
+        if (shouldPlay && currentTrace && currentTrace.id !== lastAutonomousTraceId) {
+          lastAutonomousTraceId = currentTrace.id;
+          const actorPieces = agentPiecesById.get(currentTrace.actorId);
+          if (actorPieces) {
+            const targetZoneId = fallbackTargetZoneId(currentTrace, actorPieces.agent);
+            const targetZone = result.compiledState.zones.find((zone) => zone.id === targetZoneId);
+            if (targetZone) {
+              const route = setAgentRoute(actorPieces, targetZone);
+              drawMovementPath(commandPath, route, 0xfff06a);
+            }
+          }
+        }
 
         for (const pieces of agentPieces) {
-          const active = selectedAgentId === pieces.agent.id || selectedTrace?.actorId === pieces.agent.id;
-          const dx = pieces.targetX - pieces.container.x;
-          const dy = pieces.targetY - pieces.container.y;
-          const isMoving = Math.hypot(dx, dy) > 1;
-          pieces.container.x += dx * 0.08;
-          pieces.container.y += dy * 0.08;
-          const walkOffset = active && isPlaying && !isMoving ? Math.sin(elapsed * Math.PI * 2) * 18 : 0;
-          const bob = active ? Math.sin(elapsed * Math.PI * 5 + pieces.frameRow) * 5 : 0;
-          const drift = active && isPlaying && !isMoving ? Math.cos(elapsed * Math.PI * 2) * 10 : 0;
+          const active = currentSelectedAgentId === pieces.agent.id || currentTrace?.actorId === pieces.agent.id;
+          const nextPoint = pieces.routePoints[0] ?? { x: pieces.targetX, y: pieces.targetY };
+          const dx = nextPoint.x - pieces.container.x;
+          const dy = nextPoint.y - pieces.container.y;
+          const distance = Math.hypot(dx, dy);
+          const isMoving = pieces.routePoints.length > 0 && distance > 1;
 
-          if (!isMoving) {
-            pieces.container.x = pieces.targetX + walkOffset;
-            pieces.container.y = pieces.targetY + drift;
+          if (isMoving) {
+            const step = Math.min(distance, 3.4 * delta);
+            pieces.container.x += (dx / distance) * step;
+            pieces.container.y += (dy / distance) * step;
+          }
+
+          if (pieces.routePoints.length > 0 && distance <= 4) {
+            pieces.container.x = nextPoint.x;
+            pieces.container.y = nextPoint.y;
+            pieces.routePoints.shift();
+          }
+
+          const bob = active && shouldPlay ? Math.sin(elapsed * Math.PI * 4 + pieces.frameRow) * 2 : 0;
+
+          if (pieces.routePoints.length === 0 && !isMoving) {
+            pieces.container.x = pieces.targetX;
+            pieces.container.y = pieces.targetY;
           }
           pieces.sprite.y = bob;
-          pieces.sprite.scale.set(active ? 2.2 + slowPulse * 0.18 : 2);
+          pieces.sprite.scale.set(active ? 2.12 : 2);
+          pieces.label!.alpha = active ? 1 : 0;
 
           pieces.ring.clear();
-          pieces.ring.lineStyle(active ? 5 : 2, active ? 0xfff06a : 0xffffff, active ? 0.65 + slowPulse * 0.35 : 0.22);
-          pieces.ring.drawCircle(0, 4, active ? 31 + slowPulse * 11 : 29);
+          pieces.ring.lineStyle(active ? 4 : 2, active ? 0xfff06a : 0xffffff, active ? 0.82 : 0.18);
+          pieces.ring.drawCircle(0, 4, active ? 34 : 29);
 
           pieces.bubble.clear();
           if (active) {
@@ -350,17 +431,6 @@ export function RPPixiWorld({
             pieces.bubble.endFill();
           }
         }
-
-        metricPulse.clear();
-        if (selectedTrace) {
-          const intensity = 0.18 + slowPulse * 0.28;
-          metricPulse.lineStyle(4, 0xff7368, intensity);
-          metricPulse.drawRoundedRect(18, 18, worldWidth - 36, worldHeight - 36, 12);
-        }
-
-        tracePaths.forEach((path, index) => {
-          path.alpha = 0.45 + Math.sin(elapsed * Math.PI * 2 + index) * 0.25;
-        });
       });
 
       fitWorld();
@@ -375,7 +445,7 @@ export function RPPixiWorld({
       resizeObserver.disconnect();
       app.destroy(true, { children: true, texture: false, baseTexture: false });
     };
-  }, [isPlaying, onMoveAgentToZone, onSelectAgent, result, selectedAgentId, selectedTrace]);
+  }, [result]);
 
   return <div ref={hostRef} className="pixi-host" aria-label="AI Town style simulation canvas" />;
 }
