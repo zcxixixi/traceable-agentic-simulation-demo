@@ -268,7 +268,6 @@ export function RPPixiWorld({
       let elapsed = 0;
       app.ticker.add((delta) => {
         elapsed += delta / 60;
-        const fastFrame = Math.floor(elapsed * 8) % 4;
         const slowPulse = (Math.sin(elapsed * Math.PI * 2) + 1) / 2;
 
         for (const pieces of agentPieces) {
@@ -279,17 +278,14 @@ export function RPPixiWorld({
           pieces.container.x += dx * 0.08;
           pieces.container.y += dy * 0.08;
           const walkOffset = active && isPlaying && !isMoving ? Math.sin(elapsed * Math.PI * 2) * 18 : 0;
-          const bob = Math.sin(elapsed * Math.PI * (active ? 5 : 2) + pieces.frameRow) * (active ? 5 : 2);
+          const bob = active ? Math.sin(elapsed * Math.PI * 5 + pieces.frameRow) * 5 : 0;
           const drift = active && isPlaying && !isMoving ? Math.cos(elapsed * Math.PI * 2) * 10 : 0;
-          const frameX = (isPlaying ? fastFrame : 0) * 32;
 
           if (!isMoving) {
             pieces.container.x = pieces.targetX + walkOffset;
             pieces.container.y = pieces.targetY + drift;
           }
           pieces.sprite.y = bob;
-          pieces.sprite.texture.frame = new Rectangle(frameX, pieces.frameRow * 32, 32, 32);
-          pieces.sprite.texture.updateUvs();
           pieces.sprite.scale.set(active ? 2.2 + slowPulse * 0.18 : 2);
 
           pieces.ring.clear();
